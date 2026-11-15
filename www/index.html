@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PrepAI — Offline MDCAT, NTS & Board Exam Companion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { -webkit-tap-highlight-color: transparent; user-select: none; }
+        .tab-active { color: #34d399; }
+        .loader-spin { border-top-color: #10b981; animation: spin 0.8s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans pb-20">
+
+    <!-- Top App Bar -->
+    <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 h-14 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md shadow-emerald-500/20">
+                <i class="fa-solid fa-brain text-white text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base leading-tight">PrepAI <span class="text-emerald-400">Offline</span></h1>
+                <p id="net-status" class="text-[10px] text-emerald-400 font-medium">● Offline Ready</p>
+            </div>
+        </div>
+        <button onclick="openSettings()" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+            <i class="fa-solid fa-gear text-sm"></i>
+        </button>
+    </header>
+
+    <!-- Main App Views -->
+    <main class="flex-1 max-w-lg mx-auto w-full p-4 space-y-5">
+
+        <!-- VIEW 1: HOME / OFFLINE EXAMS -->
+        <section id="view-home" class="space-y-4">
+            <!-- Stats Card -->
+            <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-4 text-white shadow-lg">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-xs text-emerald-100 uppercase tracking-wider font-semibold">Exam Readiness</p>
+                        <h2 id="stat-score" class="text-2xl font-extrabold mt-0.5">0 MCQs Solved</h2>
+                        <p id="stat-acc" class="text-xs text-emerald-100 mt-1">Accuracy: 0% • Saved Decks: 3</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="flex gap-2 overflow-x-auto pb-1">
+                <button onclick="filterDecks('ALL')" class="cat-btn bg-emerald-600 text-white text-xs font-semibold px-3.5 py-1.5 rounded-full shrink-0">All Exams</button>
+                <button onclick="filterDecks('MDCAT')" class="cat-btn bg-slate-800 text-slate-300 text-xs font-semibold px-3.5 py-1.5 rounded-full shrink-0">MDCAT</button>
+                <button onclick="filterDecks('NTS')" class="cat-btn bg-slate-800 text-slate-300 text-xs font-semibold px-3.5 py-1.5 rounded-full shrink-0">NTS NAT/GAT</button>
+                <button onclick="filterDecks('INTER')" class="cat-btn bg-slate-800 text-slate-300 text-xs font-semibold px-3.5 py-1.5 rounded-full shrink-0">Matric / Inter</button>
+                <button onclick="filterDecks('AI')" class="cat-btn bg-slate-800 text-slate-300 text-xs font-semibold px-3.5 py-1.5 rounded-full shrink-0">AI Saved</button>
+            </div>
+
+            <!-- Question Decks List -->
+            <div id="decks-list" class="space-y-3"></div>
+
+            <!-- AdMob Banner Placeholder -->
+            <div class="bg-slate-900 border border-dashed border-slate-800 rounded-xl p-3 text-center text-[11px] text-slate-500">
+                AdMob Adaptive Banner Slot (320x50)
+            </div>
+        </section>
+
+        <!-- VIEW 2: AI GENERATOR (ONLINE -> SAVES OFFLINE) -->
+        <section id="view-ai" class="hidden space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i>
+                    <h2 class="font-bold text-base">AI Quiz & Flashcard Maker</h2>
+                </div>
+                <p class="text-xs text-slate-400">Type any chapter, topic, or paste your notes. Generated MCQs are automatically saved to your phone for offline practice!</p>
+
+                <select id="ai-category" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-200 outline-none">
+                    <option value="MDCAT">Category: MDCAT Pre-Medical</option>
+                    <option value="NTS">Category: NTS Analytical / GK</option>
+                    <option value="INTER">Category: Matric / Inter Science</option>
+                    <option value="AI">Category: Custom Topic</option>
+                </select>
+
+                <textarea id="ai-topic" rows="4" placeholder="Example: MDCAT Biology — Enzymes, Lock and Key Model, Competitive Inhibition (Generate 8 tricky MCQs)..."
+                    class="w-full bg-slate-950 border border-slate-700 focus:border-emerald-500 rounded-xl p-3 text-sm text-slate-100 outline-none resize-none"></textarea>
+
+                <button onclick="generateAIDeck()" id="ai-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>Generate & Save Offline Deck</span>
+                </button>
+
+                <div id="ai-status" class="hidden text-xs text-emerald-400 flex items-center gap-2 pt-1">
+                    <div class="w-3.5 h-3.5 border-2 border-slate-700 loader-spin rounded-full"></div>
+                    <span id="ai-status-text">Generating MCQs...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: ACTIVE QUIZ PLAYER -->
+        <section id="view-quiz" class="hidden space-y-4">
+            <div class="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5">
+                <button onclick="exitQuiz()" class="text-xs text-slate-400 hover:text-white"><i class="fa-solid fa-xmark mr-1"></i> Quit</button>
+                <span id="quiz-progress" class="text-xs font-bold text-emerald-400">Q 1 / 5</span>
+                <span id="quiz-timer" class="text-xs font-mono bg-slate-800 px-2.5 py-1 rounded-md text-amber-300">05:00</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+                <h3 id="q-text" class="font-semibold text-base leading-relaxed text-white">Question text...</h3>
+                <div id="q-options" class="space-y-2.5"></div>
+                <div id="q-explain" class="hidden bg-slate-950 border border-emerald-500/30 rounded-xl p-3 text-xs text-slate-300 leading-relaxed"></div>
+            </div>
+
+            <button onclick="nextQuestion()" id="next-btn" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm py-3 rounded-xl">
+                Next Question <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </section>
+
+        <!-- VIEW 4: FLASHCARDS MODE -->
+        <section id="view-cards" class="hidden space-y-4">
+            <div class="text-center">
+                <h2 class="font-bold text-base">Quick Revision Flashcards</h2>
+                <p class="text-xs text-slate-400">Tap card to flip answer</p>
+            </div>
+            <div onclick="flipCard()" class="bg-slate-900 border border-slate-700 rounded-2xl p-6 min-h-[220px] flex flex-col items-center justify-center text-center cursor-pointer shadow-xl">
+                <span id="fc-badge" class="text-[10px] uppercase tracking-widest text-emerald-400 mb-2">QUESTION</span>
+                <p id="fc-content" class="text-base font-semibold text-white leading-relaxed">Tap Next to start</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="prevCard()" class="flex-1 bg-slate-800 py-2.5 rounded-xl text-xs font-semibold">Previous</button>
+                <button onclick="nextCard()" class="flex-1 bg-emerald-600 py-2.5 rounded-xl text-xs font-semibold text-white">Next Card</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Mobile Navigation Bar -->
+    <nav class="fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 h-16 flex items-center justify-around z-30">
+        <button onclick="switchTab('home')" id="nav-home" class="tab-active flex flex-col items-center gap-1 text-xs font-medium">
+            <i class="fa-solid fa-book-open text-base"></i>
+            <span>Offline Tests</span>
+        </button>
+        <button onclick="switchTab('ai')" id="nav-ai" class="text-slate-400 flex flex-col items-center gap-1 text-xs font-medium">
+            <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
+            <span>AI Generator</span>
+        </button>
+        <button onclick="switchTab('cards')" id="nav-cards" class="text-slate-400 flex flex-col items-center gap-1 text-xs font-medium">
+            <i class="fa-solid fa-clone text-base"></i>
+            <span>Flashcards</span>
+        </button>
+    </nav>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4">
+            <h3 class="font-bold text-base">AI Configuration</h3>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 mb-1">Cloudflare Worker Proxy URL</label>
+                    <input id="proxy-input" type="url" placeholder="https://your-worker.workers.dev" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-slate-300 mb-1">OR Gemini API Key</label>
+                    <input id="key-input" type="password" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 rounded-lg text-xs">Close</button>
+                <button onclick="saveSettings()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Built-in Offline Question Bank (Works with ZERO internet)
+        const DEFAULT_DECKS = [
+            {
+                id: "mdcat-bio-1",
+                category: "MDCAT",
+                title: "MDCAT Biology: Cell Structure & Enzymes",
+                questions: [
+                    { q: "Which organelle is responsible for synthesis of ATP via oxidative phosphorylation?", opts: ["Ribosome", "Mitochondria", "Golgi Apparatus", "Lysosome"], ans: 1, exp: "Mitochondria generate ATP through aerobic respiration on their inner membrane cristae." },
+                    { q: "Non-protein part covalently bonded to an enzyme is called:", opts: ["Coenzyme", "Apoenzyme", "Prosthetic group", "Activator"], ans: 2, exp: "A tightly and covalently bound non-protein organic/inorganic cofactor is a prosthetic group." },
+                    { q: "Which cell organelle lacks a bounding membrane?", opts: ["Peroxisome", "Ribosome", "Vacuole", "Endoplasmic Reticulum"], ans: 1, exp: "Ribosomes are non-membranous ribonucleoprotein particles present in both prokaryotes and eukaryotes." },
+                    { q: "Competitive inhibition of an enzyme can be overcome by:", opts: ["Lowering temperature", "Increasing substrate concentration", "Adding heavy metals", "Changing pH"], ans: 1, exp: "High substrate concentration outcompetes the inhibitor for the active site." }
+                ]
+            },
+            {
+                id: "nts-nat-1",
+                category: "NTS",
+                title: "NTS NAT / GAT: Analytical & Quantitative",
+                questions: [
+                    { q: "If 3x + 7 = 22, what is the value of 6x - 4?", opts: ["26", "30", "22", "18"], ans: 0, exp: "3x = 15 => x = 5. Therefore, 6(5) - 4 = 30 - 4 = 26." },
+                    { q: "Find the next number in the series: 2, 6, 12, 20, 30, ?", opts: ["36", "40", "42", "44"], ans: 2, exp: "Differences are +4, +6, +8, +10, so next difference is +12 (30 + 12 = 42)." },
+                    { q: "Select the synonym of 'EPHEMERAL':", opts: ["Permanent", "Short-lived", "Ancient", "Mysterious"], ans: 1, exp: "Ephemeral means lasting for a very short time." }
+                ]
+            },
+            {
+                id: "inter-phys-1",
+                category: "INTER",
+                title: "Intermediate Physics: Motion & Force",
+                questions: [
+                    { q: "The slope of a velocity-time graph represents:", opts: ["Displacement", "Speed", "Acceleration", "Momentum"], ans: 2, exp: "Rate of change of velocity (dv/dt) is acceleration." },
+                    { q: "At what angle of projection is the horizontal range of a projectile maximum?", opts: ["30°", "45°", "60°", "90°"], ans: 1, exp: "R = (v² sin 2θ)/g is maximum when sin 2θ = 1, i.e., 2θ = 90° => θ = 45°." },
+                    { q: "SI unit of impulse is equivalent to the unit of:", opts: ["Force", "Energy", "Linear Momentum", "Power"], ans: 2, exp: "Impulse = F × Δt = Δp (change in momentum), measured in N·s or kg·m/s." }
+                ]
+            }
+        ];
+
+        let allDecks = [];
+        let activeFilter = "ALL";
+        let currentQuiz = null;
+        let qIndex = 0;
+        let score = 0;
+        let timerInterval = null;
+        let fcIndex = 0;
+        let fcFlipped = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = JSON.parse(localStorage.getItem('prepai_custom_decks') || "[]");
+            allDecks = [...saved, ...DEFAULT_DECKS];
+            updateStats();
+            renderDecks();
+            updateNetworkIndicator();
+            window.addEventListener('online', updateNetworkIndicator);
+            window.addEventListener('offline', updateNetworkIndicator);
+        });
+
+        function updateNetworkIndicator() {
+            const el = document.getElementById('net-status');
+            el.textContent = navigator.onLine ? "● Online + Offline Ready" : "● Offline Mode Active";
+            el.className = navigator.onLine ? "text-[10px] text-emerald-400 font-medium" : "text-[10px] text-amber-400 font-medium";
+        }
+
+        function updateStats() {
+            const solved = parseInt(localStorage.getItem('prepai_solved') || "0");
+            const correct = parseInt(localStorage.getItem('prepai_correct') || "0");
+            const acc = solved ? Math.round((correct / solved) * 100) : 0;
+            document.getElementById('stat-score').textContent = `${solved} MCQs Solved`;
+            document.getElementById('stat-acc').textContent = `Accuracy: ${acc}% • Decks: ${allDecks.length}`;
+        }
+
+        function filterDecks(cat) {
+            activeFilter = cat;
+            document.querySelectorAll('.cat-btn').forEach(b => {
+                b.className = b.innerText.toUpperCase().includes(cat) || (cat === 'ALL' && b.innerText === 'All Exams')
+                    ? "cat-btn bg-emerald-600 text-white text-xs font-semibold px-3.5 py-1.5 rounded-full shrink-0"
+                    : "cat-btn bg-slate-800 text-slate-300 text-xs font-semibold px-3.5 py-1.5 rounded-full shrink-0";
+            });
+            renderDecks();
+        }
+
+        function renderDecks() {
+            const list = document.getElementById('decks-list');
+            const filtered = activeFilter === "ALL" ? allDecks : allDecks.filter(d => d.category === activeFilter);
+            list.innerHTML = filtered.map(d => `
+                <div onclick="startQuiz('${d.id}')" class="bg-slate-900 active:scale-[0.99] border border-slate-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer transition">
+                    <div>
+                        <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-md">${d.category}</span>
+                        <h3 class="font-bold text-sm text-white mt-1.5">${d.title}</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">${d.questions.length} MCQs • Offline Ready</p>
+                    </div>
+                    <div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-emerald-400">
+                        <i class="fa-solid fa-play text-xs"></i>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function switchTab(tab) {
+            ['home', 'ai', 'quiz', 'cards'].forEach(v => document.getElementById('view-' + v).classList.add('hidden'));
+            document.getElementById('view-' + tab).classList.remove('hidden');
+            ['home', 'ai', 'cards'].forEach(n => {
+                document.getElementById('nav-' + n).className = n === tab
+                    ? "tab-active flex flex-col items-center gap-1 text-xs font-medium"
+                    : "text-slate-400 flex flex-col items-center gap-1 text-xs font-medium";
+            });
+            if (tab === 'cards') renderFlashcard();
+        }
+
+        function startQuiz(id) {
+            currentQuiz = allDecks.find(d => d.id === id);
+            qIndex = 0;
+            score = 0;
+            ['home', 'ai', 'cards'].forEach(v => document.getElementById('view-' + v).classList.add('hidden'));
+            document.getElementById('view-quiz').classList.remove('hidden');
+
+            let seconds = currentQuiz.questions.length * 60;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                seconds--;
+                const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+                const s = String(seconds % 60).padStart(2, '0');
+                document.getElementById('quiz-timer').textContent = `${m}:${s}`;
+                if (seconds <= 0) finishQuiz();
+            }, 1000);
+
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const q = currentQuiz.questions[qIndex];
+            document.getElementById('quiz-progress').textContent = `Q ${qIndex + 1} / ${currentQuiz.questions.length}`;
+            document.getElementById('q-text').textContent = q.q;
+            document.getElementById('q-explain').classList.add('hidden');
+            document.getElementById('next-btn').classList.add('hidden');
+
+            const optsDiv = document.getElementById('q-options');
+            optsDiv.innerHTML = q.opts.map((opt, idx) => `
+                <button onclick="selectOption(${idx}, this)" class="opt-btn w-full text-left bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 transition">
+                    <span class="font-bold text-emerald-400 mr-2">${String.fromCharCode(65 + idx)}.</span> ${opt}
+                </button>
+            `).join('');
+        }
+
+        function selectOption(idx, btn) {
+            const q = currentQuiz.questions[qIndex];
+            const buttons = document.querySelectorAll('.opt-btn');
+            buttons.forEach(b => b.disabled = true);
+
+            const solved = parseInt(localStorage.getItem('prepai_solved') || "0") + 1;
+            let correct = parseInt(localStorage.getItem('prepai_correct') || "0");
+
+            if (idx === q.ans) {
+                btn.classList.add('border-emerald-500', 'bg-emerald-500/20');
+                score++;
+                correct++;
+            } else {
+                btn.classList.add('border-rose-500', 'bg-rose-500/20');
+                buttons[q.ans].classList.add('border-emerald-500', 'bg-emerald-500/20');
+            }
+
+            localStorage.setItem('prepai_solved', solved);
+            localStorage.setItem('prepai_correct', correct);
+            updateStats();
+
+            const exp = document.getElementById('q-explain');
+            exp.innerHTML = `<strong class="text-emerald-400">Explanation:</strong> ${q.exp}`;
+            exp.classList.remove('hidden');
+            document.getElementById('next-btn').classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            qIndex++;
+            if (qIndex < currentQuiz.questions.length) renderQuestion();
+            else finishQuiz();
+        }
+
+        function finishQuiz() {
+            clearInterval(timerInterval);
+            alert(`Test Complete! You scored ${score} out of ${currentQuiz.questions.length}`);
+            switchTab('home');
+        }
+
+        function exitQuiz() {
+            clearInterval(timerInterval);
+            switchTab('home');
+        }
+
+        // Flashcards Logic
+        function getAllQuestions() {
+            return allDecks.flatMap(d => d.questions);
+        }
+
+        function renderFlashcard() {
+            const qs = getAllQuestions();
+            const item = qs[fcIndex % qs.length];
+            fcFlipped = false;
+            document.getElementById('fc-badge').textContent = "QUESTION (TAP TO FLIP)";
+            document.getElementById('fc-content').textContent = item.q;
+        }
+
+        function flipCard() {
+            const qs = getAllQuestions();
+            const item = qs[fcIndex % qs.length];
+            fcFlipped = !fcFlipped;
+            document.getElementById('fc-badge').textContent = fcFlipped ? "ANSWER & EXPLANATION" : "QUESTION";
+            document.getElementById('fc-content').textContent = fcFlipped ? `${item.opts[item.ans]} — ${item.exp}` : item.q;
+        }
+
+        function nextCard() { fcIndex++; renderFlashcard(); }
+        function prevCard() { fcIndex = Math.max(0, fcIndex - 1); renderFlashcard(); }
+
+        // Settings & AI Deck Generation
+        function openSettings() {
+            document.getElementById('proxy-input').value = localStorage.getItem('prepai_proxy') || "";
+            document.getElementById('key-input').value = localStorage.getItem('prepai_key') || "";
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function saveSettings() {
+            localStorage.setItem('prepai_proxy', document.getElementById('proxy-input').value.trim());
+            localStorage.setItem('prepai_key', document.getElementById('key-input').value.trim());
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        async function generateAIDeck() {
+            const topic = document.getElementById('ai-topic').value.trim();
+            const cat = document.getElementById('ai-category').value;
+            if (!topic) return alert("Enter a topic or paste study notes!");
+
+            const proxy = localStorage.getItem('prepai_proxy');
+            const key = localStorage.getItem('prepai_key');
+            if (!proxy && !key) return openSettings();
+
+            const status = document.getElementById('ai-status');
+            status.classList.remove('hidden');
+
+            const sys = `Generate 6 high-yield exam MCQs for the user's topic. Return ONLY valid JSON in this exact format:
+{"title":"Short Deck Title","questions":[{"q":"Question?","opts":["A","B","C","D"],"ans":0,"exp":"Short explanation"}]}`;
+
+            try {
+                let raw = "";
+                if (proxy) {
+                    const res = await fetch(proxy, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemPrompt: sys, userMessage: topic }) });
+                    const d = await res.json();
+                    raw = d.text || d.html || "";
+                } else {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            systemInstruction: { parts: [{ text: sys }] },
+                            contents: [{ role: "user", parts: [{ text: topic }] }],
+                            generationConfig: { responseMimeType: "application/json" }
+                        })
+                    });
+                    const d = await res.json();
+                    if (d.error) throw new Error(d.error.message);
+                    raw = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                }
+
+                const parsed = JSON.parse(raw.replace(/```json|```/gi, "").trim());
+                const newDeck = { id: "ai-" + Date.now(), category: cat, title: parsed.title || topic.slice(0, 32), questions: parsed.questions };
+
+                const saved = JSON.parse(localStorage.getItem('prepai_custom_decks') || "[]");
+                saved.unshift(newDeck);
+                localStorage.setItem('prepai_custom_decks', JSON.stringify(saved));
+                allDecks = [...saved, ...DEFAULT_DECKS];
+
+                updateStats();
+                renderDecks();
+                status.classList.add('hidden');
+                alert("Deck saved offline! Opening your test now.");
+                startQuiz(newDeck.id);
+            } catch (e) {
+                status.classList.add('hidden');
+                alert("Error: " + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
