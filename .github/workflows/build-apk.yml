@@ -24,18 +24,11 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Dependencies & Ensure Android Platform
+      - name: Sync Capacitor & Build APK
         run: |
           npm install
-          if [ ! -d "android" ]; then npx cap add android; fi
           npx cap sync android
-
-      - name: Build Debug APK
-        working-directory: android
-        run: |
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
