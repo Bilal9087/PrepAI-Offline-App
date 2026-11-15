@@ -24,7 +24,15 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Accept Android SDK Licenses
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
       - name: Sync Capacitor & Build APK
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: |
           npm install
           npx cap sync android
